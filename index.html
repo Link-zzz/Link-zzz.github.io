@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>无尽冬日联盟争霸赛布局分析器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 font-sans">
+    <div class="max-w-5xl mx-auto p-6">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">无尽冬日联盟争霸赛布局分析器</h1>
+        
+        <div class="grid lg:grid-cols-2 gap-6">
+            <!-- 左侧：输入区域 -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">输入双方战力（单位：万）</h2>
+                <p class="text-gray-600 mb-6">输入你方和对方三条路的总战力，点击分析按钮即可获得最优布局建议</p>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-medium text-blue-600 mb-4">我方战力</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">上路总战力</label>
+                                <input type="number" id="our-top" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="例如：1200">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">中路总战力</label>
+                                <input type="number" id="our-mid" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="例如：1500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">下路总战力</label>
+                                <input type="number" id="our-bot" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="例如：900">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-lg font-medium text-red-600 mb-4">对方战力</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">上路总战力</label>
+                                <input type="number" id="enemy-top" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="例如：1300">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">中路总战力</label>
+                                <input type="number" id="enemy-mid" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="例如：1400">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">下路总战力</label>
+                                <input type="number" id="enemy-bot" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="例如：1000">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8 flex space-x-4">
+                    <button id="analyze-btn" class="flex-1 px-6 py-3 bg-blue-500 text-white font-medium rounded-md hover:bg-blue-600 transition-colors">开始分析</button>
+                    <button id="reset-btn" class="px-6 py-3 bg-gray-500 text-white font-medium rounded-md hover:bg-gray-600 transition-colors">重置</button>
+                </div>
+            </div>
+            
+            <!-- 右侧：分析结果 -->
+            <div class="space-y-6">
+                <!-- 战局分析 -->
+                <div id="analysis-section" class="bg-white rounded-lg shadow-md p-6 opacity-50 pointer-events-none">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">战局深度分析</h2>
+                    <div id="analysis-content" class="space-y-4">
+                        <p class="text-gray-500 text-center py-8">请输入战力并点击"开始分析"按钮</p>
+                    </div>
+                </div>
+                
+                <!-- 布局建议 -->
+                <div id="recommendation-section" class="bg-white rounded-lg shadow-md p-6 opacity-50 pointer-events-none">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">最优布局建议</h2>
+                    <div id="recommendation-content" class="space-y-4">
+                        <p class="text-gray-500 text-center py-8">请输入战力并点击"开始分析"按钮</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 底部：操作建议 -->
+        <div id="tips-section" class="bg-white rounded-lg shadow-md p-6 mt-6 opacity-50 pointer-events-none">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">实战操作建议</h2>
+            <div id="tips-content" class="grid md:grid-cols-2 gap-4">
+                <!-- 建议内容将在这里动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let ourForces = [];
+        let enemyForces = [];
+        let allPermutations = [];
+        let bestPermutation = null;
+
+        // DOM元素
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const analysisSection = document.getElementById('analysis-section');
+        const recommendationSection = document.getElementById('recommendation-section');
+        const tipsSection = document.getElementById('tips-section');
+        const analysisContent = document.getElementById('analysis-content');
+        const recommendationContent = document.getElementById('recommendation-content');
+        const tipsContent = document.getElementById('tips-content');
+
+        // 事件监听器
+        analyzeBtn.addEventListener('click', analyzeBattle);
+        resetBtn.addEventListener('click', resetAnalysis);
+
+        // 生成所有可能的排列
+        function generatePermutations(arr) {
+            if (arr.length <= 1) return [arr];
+            
+            const result = [];
+            for (let i = 0; i < arr.length; i++) {
+                const current = arr[i];
+                const remaining = [...arr.slice(0, i), ...arr.slice(i + 1)];
+                const remainingPerms = generatePermutations(remaining);
+                
+                for (const perm of remainingPerms) {
+                    result.push([current, ...perm]);
+                }
+            }
+            return result;
+        }
+
+        // 计算单场对战结果
+        function calculateMatchResult(our, enemy) {
+            const wins = [];
+            let ourWins = 0;
+            let enemyWins = 0;
+            
+            for (let i = 0; i < 3; i++) {
+                if (our[i] > enemy[i]) {
+                    wins.push(true);
+                    ourWins++;
+                } else {
+                    wins.push(false);
+                    enemyWins++;
+                }
+            }
+            
+            return {
+                wins: wins,
+                ourWins: ourWins,
+                enemyWins: enemyWins,
+                isVictory: ourWins >= 2
+            };
+        }
+
+        // 分析所有可能的布局
+        function analyzeAllPermutations() {
+            allPermutations = [];
+            
+            for (const perm of generatePermutations(ourForces)) {
+                const result = calculateMatchResult(perm, enemyForces);
+                allPermutations.push({
+                    layout: perm,
+                    result: result
+                });
+            }
+            
+            // 按胜利情况排序
+            allPermutations.sort((a, b) => {
+                if (a.result.isVictory && !b.result.isVictory) return -1;
+                if (!a.result.isVictory && b.result.isVictory) return 1;
+                return b.result.ourWins - a.result.ourWins;
+            });
+            
+            bestPermutation = allPermutations[0];
+        }
+
+        // 计算博弈论层面的最优解
+        function calculateGameTheorySolution() {
+            // 第一层：我们的最优解
+            const level1Solution = bestPermutation;
+            
+            // 第二层：如果对手知道我们会用最优解，他们会如何调整
+            const enemyBestCounter = findEnemyBestCounter(level1Solution.layout);
+            
+            // 第三层：如果我们知道对手会反制我们的最优解，我们又该如何调整
+            const ourBestCounterToEnemy = findOurBestCounter(enemyBestCounter);
+            
+            return {
+                level1: level1Solution,
+                level2: enemyBestCounter,
+                level3: ourBestCounterToEnemy
+            };
+        }
+
+        // 找到对手对我们布局的最佳反制
+        function findEnemyBestCounter(ourLayout) {
+            let bestCounter = null;
+            let bestResult = null;
+            
+            for (const perm of generatePermutations(enemyForces)) {
+                const result = calculateMatchResult(ourLayout, perm);
+                
+                if (!bestResult || result.enemyWins > bestResult.enemyWins) {
+                    bestResult = result;
+                    bestCounter = perm;
+                }
+            }
+            
+            return bestCounter;
+        }
+
+        // 找到我们对对手布局的最佳反制
+        function findOurBestCounter(enemyLayout) {
+            let bestCounter = null;
+            let bestResult = null;
+            
+            for (const perm of generatePermutations(ourForces)) {
+                const result = calculateMatchResult(perm, enemyLayout);
+                
+                if (!bestResult || result.ourWins > bestResult.ourWins) {
+                    bestResult = result;
+                    bestCounter = perm;
+                }
+            }
+            
+            return bestCounter;
+        }
+
+        // 分析战局
+        function analyzeBattle() {
+            // 获取输入值
+            const ourTop = parseFloat(document.getElementById('our-top').value) || 0;
+            const ourMid = parseFloat(document.getElementById('our-mid').value) || 0;
+            const ourBot = parseFloat(document.getElementById('our-bot').value) || 0;
+            const enemyTop = parseFloat(document.getElementById('enemy-top').value) || 0;
+            const enemyMid = parseFloat(document.getElementById('enemy-mid').value) || 0;
+            const enemyBot = parseFloat(document.getElementById('enemy-bot').value) || 0;
+            
+            // 验证输入
+            if (ourTop === 0 || ourMid === 0 || ourBot === 0 || enemyTop === 0 || enemyMid === 0 || enemyBot === 0) {
+                alert('请输入所有六条路的战力值');
+                return;
+            }
+            
+            // 保存战力数据
+            ourForces = [ourTop, ourMid, ourBot];
+            enemyForces = [enemyTop, enemyMid, enemyBot];
+            
+            // 分析所有可能的布局
+            analyzeAllPermutations();
+            
+            // 计算博弈论解决方案
+            const gameTheorySolutions = calculateGameTheorySolution();
+            
+            // 生成分析内容
+            generateAnalysisContent();
+            generateRecommendationContent(gameTheorySolutions);
+            generateTipsContent();
+            
+            // 显示结果
+            analysisSection.classList.remove('opacity-50', 'pointer-events-none');
+            recommendationSection.classList.remove('opacity-50', 'pointer-events-none');
+            tipsSection.classList.remove('opacity-50', 'pointer-events-none');
+        }
+
+        // 生成分析内容
+        function generateAnalysisContent() {
+            const totalOurPower = ourForces.reduce((a, b) => a + b, 0);
+            const totalEnemyPower = enemyForces.reduce((a, b) => a + b, 0);
+            const powerRatio = totalOurPower / totalEnemyPower;
+            
+            let powerBalanceText = '';
+            let powerBalanceClass = '';
+            
+            if (powerRatio > 1.1) {
+                powerBalanceText = '我方整体战力占优';
+                powerBalanceClass = 'text-green-600';
+            } else if (powerRatio < 0.9) {
+                powerBalanceText = '对方整体战力占优';
+                powerBalanceClass = 'text-red-600';
+            } else {
+                powerBalanceText = '双方战力基本持平';
+                powerBalanceClass = 'text-yellow-600';
+            }
+            
+            const victoryCount = allPermutations.filter(p => p.result.isVictory).length;
+            const victoryRate = (victoryCount / allPermutations.length * 100).toFixed(1);
+            
+            let victoryRateText = '';
+            let victoryRateClass = '';
+            
+            if (victoryRate >= 66) {
+                victoryRateText = '极高胜率';
+                victoryRateClass = 'text-green-600';
+            } else if (victoryRate >= 33) {
+                victoryRateText = '中等胜率';
+                victoryRateClass = 'text-yellow-600';
+            } else {
+                victoryRateText = '低胜率';
+                victoryRateClass = 'text-red-600';
+            }
+            
+            analysisContent.innerHTML = `
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="text-sm text-gray-600">我方总战力</div>
+                        <div class="text-xl font-bold text-blue-600">${totalOurPower.toLocaleString()}万</div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="text-sm text-gray-600">对方总战力</div>
+                        <div class="text-xl font-bold text-red-600">${totalEnemyPower.toLocaleString()}万</div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="text-sm text-gray-600">战力比</div>
+                        <div class="text-lg font-medium">${powerRatio.toFixed(2)}:1</div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="text-sm text-gray-600">理论胜率</div>
+                        <div class="text-lg font-medium ${victoryRateClass}">${victoryRate}%</div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <h3 class="font-medium text-gray-800 mb-2">单路战力对比</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-2">路线</th>
+                                    <th class="text-right py-2">我方</th>
+                                    <th class="text-right py-2">对方</th>
+                                    <th class="text-right py-2">差距</th>
+                                    <th class="text-right py-2">结果</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-gray-100">
+                                    <td class="py-2">上路</td>
+                                    <td class="text-right py-2">${ourForces[0].toLocaleString()}万</td>
+                                    <td class="text-right py-2">${enemyForces[0].toLocaleString()}万</td>
+                                    <td class="text-right py-2 ${ourForces[0] > enemyForces[0] ? 'text-green-600' : 'text-red-600'}">${ourForces[0] > enemyForces[0] ? '+' : ''}${(ourForces[0] - enemyForces[0]).toLocaleString()}万</td>
+                                    <td class="text-right py-2 ${ourForces[0] > enemyForces[0] ? 'text-green-600' : 'text-red-600'}">${ourForces[0] > enemyForces[0] ? '胜' : '负'}</td>
+                                </tr>
+                                <tr class="border-b border-gray-100">
+                                    <td class="py-2">中路</td>
+                                    <td class="text-right py-2">${ourForces[1].toLocaleString()}万</td>
+                                    <td class="text-right py-2">${enemyForces[1].toLocaleString()}万</td>
+                                    <td class="text-right py-2 ${ourForces[1] > enemyForces[1] ? 'text-green-600' : 'text-red-600'}">${ourForces[1] > enemyForces[1] ? '+' : ''}${(ourForces[1] - enemyForces[1]).toLocaleString()}万</td>
+                                    <td class="text-right py-2 ${ourForces[1] > enemyForces[1] ? 'text-green-600' : 'text-red-600'}">${ourForces[1] > enemyForces[1] ? '胜' : '负'}</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2">下路</td>
+                                    <td class="text-right py-2">${ourForces[2].toLocaleString()}万</td>
+                                    <td class="text-right py-2">${enemyForces[2].toLocaleString()}万</td>
+                                    <td class="text-right py-2 ${ourForces[2] > enemyForces[2] ? 'text-green-600' : 'text-red-600'}">${ourForces[2] > enemyForces[2] ? '+' : ''}${(ourForces[2] - enemyForces[2]).toLocaleString()}万</td>
+                                    <td class="text-right py-2 ${ourForces[2] > enemyForces[2] ? 'text-green-600' : 'text-red-600'}">${ourForces[2] > enemyForces[2] ? '胜' : '负'}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">
+                        当前原始布局结果：${calculateMatchResult(ourForces, enemyForces).isVictory ? '胜利' : '失败'} 
+                        (${calculateMatchResult(ourForces, enemyForces).ourWins}:${calculateMatchResult(ourForces, enemyForces).enemyWins})
+                    </p>
+                </div>
+                
+                <div class="mt-4 bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
+                    <p class="text-sm text-blue-700">
+                        <strong>战力评估：</strong><span class="${powerBalanceClass}">${powerBalanceText}</span>，
+                        <strong>胜率评估：</strong><span class="${victoryRateClass}">${victoryRateText}</span>
+                    </p>
+                    <p class="text-sm text-blue-700 mt-1">
+                        ${victoryRate >= 50 ? '我方在博弈中处于有利位置，可以采取主动变阵策略。' : '我方在博弈中处于不利位置，需要采取出其不意的变阵策略。'}
+                    </p>
+                </div>
+            `;
+        }
+
+        // 生成推荐内容
+        function generateRecommendationContent(gameTheorySolutions) {
+            // 找到所有能获胜的布局
+            const winningPermutations = allPermutations.filter(p => p.result.isVictory);
+            
+            let winningLayoutsHtml = '';
+            if (winningPermutations.length > 0) {
+                winningLayoutsHtml = '<div class="space-y-2">';
+                
+                winningPermutations.forEach((perm, index) => {
+                    const originalIndices = findOriginalIndices(perm.layout, ourForces);
+                    winningLayoutsHtml += `
+                        <div class="bg-green-50 p-3 rounded-lg border border-green-200">
+                            <div class="font-medium text-green-800 mb-1">方案 ${index + 1} (${perm.result.ourWins}:${perm.result.enemyWins})</div>
+                            <div class="grid grid-cols-3 gap-2 text-sm">
+                                <div>
+                                    <span class="text-gray-600">上：</span>
+                                    <span class="font-medium">${perm.layout[0].toLocaleString()}万</span>
+                                    <span class="text-xs text-gray-500">(原${getRoadName(originalIndices[0])})</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">中：</span>
+                                    <span class="font-medium">${perm.layout[1].toLocaleString()}万</span>
+                                    <span class="text-xs text-gray-500">(原${getRoadName(originalIndices[1])})</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">下：</span>
+                                    <span class="font-medium">${perm.layout[2].toLocaleString()}万</span>
+                                    <span class="text-xs text-gray-500">(原${getRoadName(originalIndices[2])})</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                winningLayoutsHtml += '</div>';
+            } else {
+                winningLayoutsHtml = `
+                    <div class="bg-red-50 p-3 rounded-lg border border-red-200">
+                        <p class="text-red-700 font-medium">没有任何布局能够保证胜利</p>
+                        <p class="text-sm text-red-600 mt-1">建议选择能赢下最多路数的布局，争取2:1的结果</p>
+                    </div>
+                `;
+            }
+            
+            // 生成博弈论建议
+            let gameTheoryHtml = '';
+            
+            if (winningPermutations.length > 0) {
+                const bestLayout = gameTheorySolutions.level1.layout;
+                const bestLayoutOriginalIndices = findOriginalIndices(bestLayout, ourForces);
+                
+                const enemyCounter = gameTheorySolutions.level2;
+                const enemyCounterOriginalIndices = findOriginalIndices(enemyCounter, enemyForces);
+                
+                const ourCounterToEnemy = gameTheorySolutions.level3;
+                const ourCounterToEnemyOriginalIndices = findOriginalIndices(ourCounterToEnemy, ourForces);
+                
+                gameTheoryHtml = `
+                    <div class="space-y-3 mt-4">
+                        <div class="bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-500">
+                            <h4 class="font-medium text-yellow-800 mb-1">第一层博弈（新手推荐）</h4>
+                            <p class="text-xs text-yellow-700 mb-1">假设对手不变阵，直接使用最优解</p>
+                            <div class="grid grid-cols-3 gap-2 text-sm">
+                                <div>
+                                    <span class="text-gray-600">上：</span>
+                                    <span class="font-medium">${bestLayout[0].toLocaleString()}万</span>
+                                    <span class="text-xs text-gray-500">(原${getRoadName(bestLayoutOriginalIndices[0])})</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">中：</span>
+                                    <span class="font-medium">${bestLayout[1].toLocaleString()}万</span>
+                                    <span class="text-xs text-gray-500">(原${getRoadName(bestLayoutOriginalIndices[1])})</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">下：</span>
+                                    <span class="font-medium">${bestLayout[2].toLocaleString()}万</span>
+                                    <span class="text-xs text-gray-500">(原${getRoadName(bestLayoutOriginalIndices[2])})</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-yellow-600 mt-1">适用：第一轮、对手较弱、指挥水平不高</p>
+                        </div>
+                        
+                        <div class="bg-orange-50 p-3 rounded-lg border-l-4 border-orange-500">
+                            <h4 class="font-medium text-orange-800 mb-1">第二层博弈（推荐使用）</h4>
+                            <p class="text-xs text-orange-700 mb-1">预判对手会反制，我们提前反制他们的反制</p>
+                            <div class="grid grid-cols-3 gap-2 text-sm">
+                                <div>
+                                    <span class="text-gray-600">上：</span>
+                                    <span class="font-medium">${ourCounterToEnemy[0].toLocaleString()}万</span>
+                                    <span class="text-xs text-gray-500">(原${getRoadName(ourCounterToEnemyOriginalIndices[0])})</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">中：</span>
+                                    <span class="font-medium">${ourCounterToEnemy[1].toLocaleString()}万</span>
+                                    <span class="text-xs text-gray-500">(原${getRoadName(ourCounterToEnemyOriginalIndices[1])})</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-600">下：</span>
+                                    <span class="font-medium">${ourCounterToEnemy[2].toLocaleString()}万</span>
+                                    <span class="text-xs text-gray-500">(原${getRoadName(ourCounterToEnemyOriginalIndices[2])})</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-orange-600 mt-1">适用：第二轮及以后、对手实力相当、有一定指挥水平</p>
+                        </div>
+                        
+                        <div class="bg-red-50 p-3 rounded-lg border-l-4 border-red-500">
+                            <h4 class="font-medium text-red-800 mb-1">第三层博弈（顶尖指挥）</h4>
+                            <p class="text-xs text-red-700">
+                                如果对手也进行多层博弈分析，最安全的策略是：<strong>随机选择一个能获胜的布局</strong>，而不是使用理论上的"最优解"。
+                            </p>
+                            <p class="text-xs text-red-600 mt-1">适用：决赛轮、对手是顶尖联盟、双方都有专业指挥</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // 没有必胜布局时的建议
+                const bestLosingPermutation = allPermutations[0];
+                const bestLosingOriginalIndices = findOriginalIndices(bestLosingPermutation.layout, ourForces);
+                
+                gameTheoryHtml = `
+                    <div class="bg-red-50 p-3 rounded-lg border-l-4 border-red-500 mt-4">
+                        <h4 class="font-medium text-red-800 mb-1">劣势局策略建议</h4>
+                        <p class="text-xs text-red-700 mb-1">
+                            由于双方战力差距较大，没有任何布局能够保证胜利。建议选择能赢下最多路数的布局。
+                        </p>
+                        <div class="grid grid-cols-3 gap-2 text-sm">
+                            <div>
+                                <span class="text-gray-600">上：</span>
+                                <span class="font-medium">${bestLosingPermutation.layout[0].toLocaleString()}万</span>
+                                <span class="text-xs text-gray-500">(原${getRoadName(bestLosingOriginalIndices[0])})</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-600">中：</span>
+                                <span class="font-medium">${bestLosingPermutation.layout[1].toLocaleString()}万</span>
+                                <span class="text-xs text-gray-500">(原${getRoadName(bestLosingOriginalIndices[1])})</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-600">下：</span>
+                                <span class="font-medium">${bestLosingPermutation.layout[2].toLocaleString()}万</span>
+                                <span class="text-xs text-gray-500">(原${getRoadName(bestLosingOriginalIndices[2])})</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-red-600 mt-1">预期结果：${bestLosingPermutation.result.ourWins}:${bestLosingPermutation.result.enemyWins}</p>
+                    </div>
+                `;
+            }
+            
+            recommendationContent.innerHTML = winningLayoutsHtml + gameTheoryHtml;
+        }
+
+        // 生成操作建议内容
+        function generateTipsContent() {
+            tipsContent.innerHTML = `
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <h4 class="font-medium text-gray-800 mb-2">赛前准备</h4>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• 所有成员先统一部署在中路待命</li>
+                        <li>• 指挥官在最后5分钟再进行最终分路</li>
+                        <li>• 不要过早暴露最终布局，防止对手反制</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <h4 class="font-medium text-gray-800 mb-2">战术要点</h4>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• 联盟争霸赛是三局两胜制，赢下两条路就够了</li>
+                        <li>• 高战玩家最多只能赢两场，中低战深度很重要</li>
+                        <li>• 每条路只取战力前20名，多余人员可以当炮灰</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <h4 class="font-medium text-gray-800 mb-2">博弈技巧</h4>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• 第一轮可以用"弃一保二"的基础战术</li>
+                        <li>• 第二轮开始根据对手上一轮的布局调整</li>
+                        <li>• 不要连续使用相同的布局，容易被针对</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <h4 class="font-medium text-gray-800 mb-2">注意事项</h4>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>• 战力快照在点击"保存"时锁定</li>
+                        <li>• 报名时激活的增益会全程生效</li>
+                        <li>• 退盟后队伍仍会为原联盟战斗</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        // 找到原始索引
+        function findOriginalIndices(layout, original) {
+            const indices = [];
+            const used = [false, false, false];
+            
+            for (let i = 0; i < layout.length; i++) {
+                for (let j = 0; j < original.length; j++) {
+                    if (!used[j] && layout[i] === original[j]) {
+                        indices.push(j);
+                        used[j] = true;
+                        break;
+                    }
+                }
+            }
+            
+            return indices;
+        }
+
+        // 获取路名
+        function getRoadName(index) {
+            const roadNames = ['上路', '中路', '下路'];
+            return roadNames[index];
+        }
+
+        // 重置分析
+        function resetAnalysis() {
+            // 清空输入
+            document.getElementById('our-top').value = '';
+            document.getElementById('our-mid').value = '';
+            document.getElementById('our-bot').value = '';
+            document.getElementById('enemy-top').value = '';
+            document.getElementById('enemy-mid').value = '';
+            document.getElementById('enemy-bot').value = '';
+            
+            // 重置结果区域
+            analysisContent.innerHTML = '<p class="text-gray-500 text-center py-8">请输入战力并点击"开始分析"按钮</p>';
+            recommendationContent.innerHTML = '<p class="text-gray-500 text-center py-8">请输入战力并点击"开始分析"按钮</p>';
+            tipsContent.innerHTML = '';
+            
+            // 隐藏结果
+            analysisSection.classList.add('opacity-50', 'pointer-events-none');
+            recommendationSection.classList.add('opacity-50', 'pointer-events-none');
+            tipsSection.classList.add('opacity-50', 'pointer-events-none');
+            
+            // 重置全局变量
+            ourForces = [];
+            enemyForces = [];
+            allPermutations = [];
+            bestPermutation = null;
+        }
+    </script>
+</body>
+</html>
